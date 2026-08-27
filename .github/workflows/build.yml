@@ -1,0 +1,54 @@
+name: Build ZK AI IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract ZK AI
+        run: |
+          mkdir project
+          unzip -o ZK_AI_Native_v0.1.0_SOURCE_AND_BUILD.zip -d project
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: project
+        run: xcodegen generate
+
+      - name: Build iPhone app
+        working-directory: project
+        run: |
+          xcodebuild \
+            -project ZKAINative.xcodeproj \
+            -scheme ZKAINative \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath "$PWD/build" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            clean build
+
+      - name: Make IPA
+        working-directory: project
+        run: |
+          mkdir Payload
+          cp -R "build/Build/Products/Release-iphoneos/ZK AI.app" Payload/
+          ditto -c -k --sequesterRsrc --keepParent Payload ZK-AI-Native-v0.1.0.ipa
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZK-AI-Native-v0.1.0-IPA
+          path: project/ZK-AI-Native-v0.1.0.ipa
